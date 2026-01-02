@@ -19,7 +19,8 @@
     "clsx": "latest",
     "tailwind-merge": "latest",
     "jspdf": "^3.0.4",
-    "jspdf-autotable": "^5.0.2"
+    "jspdf-autotable": "^5.0.2",
+    "@supabase/supabase-js": "2.42.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

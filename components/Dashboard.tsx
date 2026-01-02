@@ -2,7 +2,6 @@
 import React from 'react';
 import { KpiCard } from './KpiCard';
 import { FinancialChart } from './FinancialChart';
-import { AlertList } from './AlertList';
 import { KPIData } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { useSchoolData } from '../contexts/SchoolDataContext';
@@ -76,13 +75,8 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <FinancialChart />
-        </div>
-        <div className="lg:col-span-1">
-          <AlertList />
-        </div>
+      <div className="w-full">
+        <FinancialChart />
       </div>
     </div>
   );

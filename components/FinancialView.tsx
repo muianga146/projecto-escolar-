@@ -17,7 +17,6 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Transaction } from '../types';
-import { FinancialBarChart } from './finance/FinancialCharts';
 import { TransactionForm, TransactionFormValues } from './finance/TransactionForm';
 import { formatCurrency } from '../lib/utils';
 import { useSchoolData } from '../contexts/SchoolDataContext';
@@ -157,7 +156,7 @@ export const FinancialView: React.FC = () => {
       category: data.category,
       method: data.paymentMethod as any, // FIXED: Use data from form instead of hardcoded 'Cash'
       status: 'completed',
-      attachment: data.attachment ? 'file_uploaded' : undefined,
+      attachment: data.attachmentBase64, // Use base64 string
       studentId: data.studentId,
       paidMonths: data.selectedMonths
     };
@@ -342,15 +341,10 @@ export const FinancialView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Visual Analysis & Ledger Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-          {/* Chart Section */}
-          <div className="lg:col-span-1 h-[400px] lg:h-auto">
-             <FinancialBarChart />
-          </div>
-
+      {/* 3. Visual Analysis & Ledger Split - Chart removed, Ledger takes full space */}
+      <div className="flex-1">
           {/* 4. Transactions Ledger (The Core) */}
-          <div className="lg:col-span-2 bg-surface-light dark:bg-surface-dark rounded-xl border border-[#e7ebf3] dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
+          <div className="w-full bg-surface-light dark:bg-surface-dark rounded-xl border border-[#e7ebf3] dark:border-gray-700 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
               <div className="p-5 border-b border-[#e7ebf3] dark:border-gray-800 flex items-center justify-between">
                   <h3 className="text-lg font-bold text-[#0d121b] dark:text-white">Extrato Detalhado</h3>
                   <div className="flex gap-2">
@@ -409,7 +403,16 @@ export const FinancialView: React.FC = () => {
                                   </td>
                                   <td className="py-3 px-5 text-right">
                                       {tx.attachment ? (
-                                        <button className="text-primary hover:text-primary-dark" title="Ver Anexo">
+                                        <button 
+                                          onClick={() => {
+                                            const win = window.open();
+                                            if (win) {
+                                                win.document.write('<iframe src="' + tx.attachment + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
+                                            }
+                                          }}
+                                          className="text-primary hover:text-primary-dark" 
+                                          title="Ver Anexo"
+                                        >
                                             <span className="material-symbols-outlined text-[18px]">attachment</span>
                                         </button>
                                       ) : (

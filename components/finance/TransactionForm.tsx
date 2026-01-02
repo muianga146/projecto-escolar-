@@ -35,7 +35,7 @@ const transactionSchema = z.object({
   }
 });
 
-export type TransactionFormValues = z.infer<typeof transactionSchema>;
+export type TransactionFormValues = z.infer<typeof transactionSchema> & { attachmentBase64?: string };
 
 interface TransactionFormProps {
   onSuccess: (data: TransactionFormValues) => void;
@@ -45,6 +45,7 @@ interface TransactionFormProps {
 export const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess, onCancel }) => {
   const { students } = useSchoolData(); // Access global student data
   const [fileName, setFileName] = React.useState<string | null>(null);
+  const [attachmentBase64, setAttachmentBase64] = React.useState<string | null>(null);
 
   const { 
     register, 
@@ -118,15 +119,25 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess, onC
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0];
+      setFileName(file.name);
+      
+      // Convert to Base64
+      const reader = new FileReader();
+      reader.onloadend = () => {
+          setAttachmentBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     } else {
       setFileName(null);
+      setAttachmentBase64(null);
     }
   };
 
   const onSubmit = async (data: TransactionFormValues) => {
     await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network
-    onSuccess(data);
+    // Pass the base64 string up
+    onSuccess({ ...data, attachmentBase64: attachmentBase64 || undefined });
   };
 
   return (
@@ -327,18 +338,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ onSuccess, onC
                 accept="image/*,.pdf"
             />
             <div className={`
-                border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-all
+                border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center transition-all overflow-hidden relative
                 ${errors.attachment 
                     ? 'border-warning bg-warning/5' 
                     : 'border-gray-300 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-800'}
             `}>
-                 <span className={`material-symbols-outlined text-3xl mb-2 ${errors.attachment ? 'text-warning' : 'text-neutral-gray'}`}>
+                 {/* Image Preview if available */}
+                 {attachmentBase64 && attachmentBase64.startsWith('data:image') ? (
+                    <img src={attachmentBase64} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-30 transition-opacity" />
+                 ) : null}
+
+                 <span className={`material-symbols-outlined text-3xl mb-2 relative z-10 ${errors.attachment ? 'text-warning' : 'text-neutral-gray'}`}>
                     {fileName ? 'check_circle' : 'cloud_upload'}
                  </span>
-                 <p className={`text-xs font-medium ${errors.attachment ? 'text-warning' : 'text-[#0d121b] dark:text-white'}`}>
+                 <p className={`text-xs font-medium relative z-10 ${errors.attachment ? 'text-warning' : 'text-[#0d121b] dark:text-white'}`}>
                     {fileName || "Clique ou arraste para anexar"}
                  </p>
-                 <p className="text-[10px] text-neutral-gray mt-1">PDF, PNG ou JPG (Máx. 5MB)</p>
+                 <p className="text-[10px] text-neutral-gray mt-1 relative z-10">PDF, PNG ou JPG (Máx. 5MB)</p>
             </div>
           </div>
           {errors.attachment && (

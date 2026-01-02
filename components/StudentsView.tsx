@@ -81,7 +81,8 @@ export const StudentsView: React.FC = () => {
         id: Math.random().toString(36).substr(2, 9),
         name: formData.personal.fullName,
         email: `${formData.personal.fullName.split(' ')[0].toLowerCase()}@student.seiva.mz`,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.personal.fullName)}&background=random`,
+        // Use the uploaded base64 avatar if present, otherwise fallback to UI Avatars
+        avatar: formData.avatarBase64 || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.personal.fullName)}&background=random`,
         enrollmentId: `#${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
         grade: formData.academic.grade as GradeLevel,
         balance: 0,
@@ -177,10 +178,9 @@ export const StudentsView: React.FC = () => {
         </div>
 
         {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <StatCard label="Total de Alunos" value={students.length.toString()} icon="groups" color="text-primary" />
             <StatCard label="Novas Matrículas" value={students.filter(s => new Date(s.academic.enrollmentDate).getMonth() === new Date().getMonth()).length.toString()} sub="Este Mês" icon="person_add" color="text-success" />
-            <StatCard label="Alertas Acadêmicos" value="12" sub="Média < 10" icon="priority_high" color="text-warning" />
         </div>
       </div>
 

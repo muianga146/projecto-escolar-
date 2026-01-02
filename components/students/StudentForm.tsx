@@ -36,7 +36,7 @@ const studentFormSchema = z.object({
   }),
 });
 
-export type StudentFormValues = z.infer<typeof studentFormSchema>;
+export type StudentFormValues = z.infer<typeof studentFormSchema> & { avatarBase64?: string };
 
 interface StudentFormProps {
   onSuccess: (data: StudentFormValues) => void;
@@ -61,10 +61,10 @@ export const StudentForm: React.FC<StudentFormProps> = ({ onSuccess, onCancel })
   });
 
   const onSubmit = async (data: StudentFormValues) => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    // Pass data back to parent
-    onSuccess(data);
+    // Pass the base64 image along with data
+    const finalData = { ...data, avatarBase64: avatarPreview || undefined };
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    onSuccess(finalData);
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
