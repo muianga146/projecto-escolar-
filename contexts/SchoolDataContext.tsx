@@ -1,9 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Student, Transaction, CalendarEvent, Employee, KPIData } from '../types';
-import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { getStudentFinancialStatus } from '../lib/utils';
-import { supabase } from '../lib/supabaseClient';
 
 // --- CONTEXT DEFINITION ---
 
@@ -36,247 +34,122 @@ interface SchoolDataContextType {
 
 const SchoolDataContext = createContext<SchoolDataContextType | undefined>(undefined);
 
+const STORAGE_KEYS = {
+  STUDENTS: 'seiva_students',
+  TRANSACTIONS: 'seiva_transactions',
+  EVENTS: 'seiva_events',
+  EMPLOYEES: 'seiva_employees'
+};
+
 export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // 1. Initial State: Initialize with empty arrays (Server-Safe)
   const [students, setStudents] = useState<Student[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Data Fetching ---
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-        // 1. Fetch Students
-        const { data: studentsData, error: studentError } = await supabase
-            .from('students')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (studentError) throw studentError;
+  // 2. useEffect Loader: Load from LocalStorage ONLY after mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+        const savedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+        const savedEvents = localStorage.getItem(STORAGE_KEYS.EVENTS);
+        const savedEmployees = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
 
-        setStudents((studentsData || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            email: s.email,
-            avatar: s.avatar,
-            enrollmentId: s.enrollment_id,
-            grade: s.grade,
-            balance: s.balance,
-            status: s.status,
-            financialStatus: s.financial_status,
-            paidMonths: s.paid_months || [],
-            personal: s.personal || {},
-            academic: s.academic || {},
-            guardians: s.guardians || {},
-            health: s.health || {}
-        })));
-
-        // 2. Fetch Transactions
-        const { data: txData, error: txError } = await supabase
-            .from('transactions')
-            .select('*')
-            .order('date', { ascending: false });
-
-        if (txError) throw txError;
-
-        setTransactions((txData || []).map((t: any) => ({
-            id: t.id,
-            date: t.date,
-            description: t.description,
-            amount: t.amount,
-            type: t.type,
-            category: t.category,
-            method: t.method,
-            status: t.status,
-            attachment: t.attachment,
-            studentId: t.student_id,
-            paidMonths: t.paid_months || []
-        })));
-
-        // 3. Fetch Events
-        const { data: eventData, error: eventError } = await supabase
-            .from('events')
-            .select('*');
-
-        if (eventError) throw eventError;
-
-        setEvents((eventData || []).map((e: any) => ({
-            id: e.id,
-            title: e.title,
-            description: e.description,
-            start: new Date(e.start_time),
-            end: new Date(e.end_time),
-            category: e.category,
-            location: e.location
-        })));
-
-        // 4. Fetch Employees
-        const { data: empData, error: empError } = await supabase
-            .from('employees')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (empError) throw empError;
-
-        setEmployees((empData || []).map((e: any) => ({
-            id: e.id,
-            name: e.name,
-            role: e.role,
-            department: e.department,
-            email: e.email,
-            phone: e.phone,
-            avatar: e.avatar,
-            contractType: e.contract_type,
-            admissionDate: e.admission_date,
-            status: e.status,
-            salary: {
-                base: e.salary_base,
-                currency: e.salary_currency
-            },
-            personal: e.personal || {},
-            bank: e.bank || {}
-        })));
-
-    } catch (err: any) {
-        console.error("Supabase Data Fetch Error:", err.message || JSON.stringify(err));
-    } finally {
+        if (savedStudents) setStudents(JSON.parse(savedStudents));
+        if (savedTx) setTransactions(JSON.parse(savedTx));
+        if (savedEvents) {
+          const parsedEvents = JSON.parse(savedEvents);
+          // Hydrate Date strings back to Date objects
+          const hydratedEvents = parsedEvents.map((e: any) => ({
+            ...e,
+            start: new Date(e.start),
+            end: new Date(e.end)
+          }));
+          setEvents(hydratedEvents);
+        }
+        if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+      } catch (error) {
+        console.error("Failed to load data from localStorage", error);
+      } finally {
         setIsLoading(false);
+      }
     }
-  };
+  }, []);
+
+  // 3. Save data when state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isLoading) {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+    }
+  }, [students, isLoading]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (typeof window !== 'undefined' && !isLoading) {
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    }
+  }, [transactions, isLoading]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isLoading) {
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    }
+  }, [events, isLoading]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isLoading) {
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+    }
+  }, [employees, isLoading]);
+
 
   // --- Actions ---
 
   const addStudent = async (s: Student) => {
     setStudents(prev => [s, ...prev]);
-    const { error } = await supabase.from('students').insert({
-        id: s.id,
-        name: s.name,
-        email: s.email,
-        avatar: s.avatar,
-        enrollment_id: s.enrollmentId,
-        grade: s.grade,
-        balance: s.balance,
-        status: s.status,
-        financial_status: s.financialStatus,
-        paid_months: s.paidMonths,
-        personal: s.personal,
-        academic: s.academic,
-        guardians: s.guardians,
-        health: s.health
-    });
-    if (error) console.error("Error saving student:", error);
   };
 
   const updateStudent = async (s: Student) => {
     setStudents(prev => prev.map(item => item.id === s.id ? s : item));
-    const { error } = await supabase.from('students').update({
-        name: s.name,
-        email: s.email,
-        avatar: s.avatar,
-        enrollment_id: s.enrollmentId,
-        grade: s.grade,
-        balance: s.balance,
-        status: s.status,
-        financial_status: s.financialStatus,
-        paid_months: s.paidMonths,
-        personal: s.personal,
-        academic: s.academic,
-        guardians: s.guardians,
-        health: s.health
-    }).eq('id', s.id);
-    if (error) console.error("Error updating student:", error);
   };
   
   const addTransaction = async (t: Transaction) => {
     setTransactions(prev => [t, ...prev]);
-    const { error: txError } = await supabase.from('transactions').insert({
-        id: t.id,
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        type: t.type,
-        category: t.category,
-        method: t.method,
-        status: t.status,
-        attachment: t.attachment,
-        student_id: t.studentId || null,
-        paid_months: t.paidMonths
-    });
-    if (txError) console.error("Error adding transaction:", txError);
-
+    
+    // Auto-update student financial status if linked
     if (t.studentId && t.paidMonths && t.paidMonths.length > 0) {
-        const studentToUpdate = students.find(s => s.id === t.studentId);
-        if (studentToUpdate) {
-            const updatedPaidMonths = Array.from(new Set([...studentToUpdate.paidMonths, ...t.paidMonths!]));
-            const newStatus = getStudentFinancialStatus(updatedPaidMonths);
-            const updatedStudent = { ...studentToUpdate, paidMonths: updatedPaidMonths, financialStatus: newStatus };
-            
-            setStudents(prev => prev.map(s => s.id === t.studentId ? updatedStudent : s));
-            await supabase.from('students').update({
-                paid_months: updatedPaidMonths,
-                financial_status: newStatus
-            }).eq('id', t.studentId);
+      setStudents(prev => prev.map(s => {
+        if (s.id === t.studentId) {
+          const updatedPaidMonths = Array.from(new Set([...s.paidMonths, ...t.paidMonths!]));
+          const newStatus = getStudentFinancialStatus(updatedPaidMonths);
+          return { ...s, paidMonths: updatedPaidMonths, financialStatus: newStatus };
         }
+        return s;
+      }));
     }
   };
   
   const addEvent = async (e: CalendarEvent) => {
     setEvents(prev => [...prev, e]);
-    const { error } = await supabase.from('events').insert({
-        id: e.id,
-        title: e.title,
-        description: e.description,
-        start_time: e.start.toISOString(),
-        end_time: e.end.toISOString(),
-        category: e.category,
-        location: e.location
-    });
-    if (error) console.error("Error adding event:", error);
   };
 
   const updateEvent = async (e: CalendarEvent) => {
     setEvents(prev => prev.map(ev => ev.id === e.id ? e : ev));
-    const { error } = await supabase.from('events').update({
-        title: e.title,
-        description: e.description,
-        start_time: e.start.toISOString(),
-        end_time: e.end.toISOString(),
-        category: e.category,
-        location: e.location
-    }).eq('id', e.id);
-    if (error) console.error("Error updating event:", error);
   };
 
   const deleteEvent = async (id: string) => {
     setEvents(prev => prev.filter(ev => ev.id !== id));
-    const { error } = await supabase.from('events').delete().eq('id', id);
-    if (error) console.error("Error deleting event:", error);
   };
 
   const addEmployee = async (e: Employee) => {
     setEmployees(prev => [e, ...prev]);
-    const { error } = await supabase.from('employees').insert({
-        id: e.id,
-        name: e.name,
-        role: e.role,
-        department: e.department,
-        email: e.email,
-        phone: e.phone,
-        avatar: e.avatar,
-        contract_type: e.contractType,
-        admission_date: e.admissionDate,
-        status: e.status,
-        salary_base: e.salary.base,
-        salary_currency: e.salary.currency,
-        personal: e.personal,
-        bank: e.bank
-    });
-    if (error) console.error("Error adding employee:", error);
+  };
+
+  const refreshData = async () => {
+    // No-op for LocalStorage, data is always fresh in state
+    return Promise.resolve();
   };
 
   // Computed KPIs
@@ -313,7 +186,7 @@ export const SchoolDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       updateEvent,
       deleteEvent,
       addEmployee,
-      refreshData: fetchData,
+      refreshData,
       kpis,
       isLoading
     }}>
